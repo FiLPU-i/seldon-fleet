@@ -31,13 +31,23 @@ class ClassifyDevice {
                 ReasonDetail(ReasonCode.ZERO_SCREEN_TIME, device.screenOnMinutes.toDouble(), 0.0)
             )
         }
-        if (device.energyConsumedMah == null || device.energyConsumedMah.isNaN() || device.energyConsumedMah.isInfinite()) {
+        if (device.originalEnergyConsumed < 0.0) {
+            indeterminadoReasons.add(
+                ReasonDetail(ReasonCode.NEGATIVE_ENERGY, device.originalEnergyConsumed, 0.0)
+            )
+        } else if (device.energyConsumedMah == null || device.energyConsumedMah.isNaN() || device.energyConsumedMah.isInfinite()) {
             indeterminadoReasons.add(
                 ReasonDetail(ReasonCode.INVALID_ENERGY_CONVERSION, device.originalEnergyConsumed, 0.0)
             )
-        } else if (device.energyConsumedMah < 0.0) {
+        }
+        if (device.jankFramesPct.isNaN() || device.jankFramesPct.isInfinite() || device.jankFramesPct < 0.0 || device.jankFramesPct > 100.0) {
             indeterminadoReasons.add(
-                ReasonDetail(ReasonCode.NEGATIVE_ENERGY, device.energyConsumedMah, 0.0)
+                ReasonDetail(ReasonCode.INVALID_JANK_METRIC, device.jankFramesPct, 100.0)
+            )
+        }
+        if (device.crashCount7d < 0) {
+            indeterminadoReasons.add(
+                ReasonDetail(ReasonCode.INVALID_CRASH_METRIC, device.crashCount7d.toDouble(), 0.0)
             )
         }
 

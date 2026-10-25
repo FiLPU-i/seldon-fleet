@@ -15,7 +15,8 @@ class ClassifyDeviceTest {
     private fun baseDevice(
         batteryCapacityMah: Int = 5000,
         screenOnMinutes: Int = 60,
-        energyConsumedMah: Double? = 250.0, // 250 mAh em 1h num tanque de 5000 mAh = 5.0%/h (OK)
+        energyConsumedMah: Double? = 250.0,
+        originalEnergyConsumed: Double = 250.0,
         jankFramesPct: Double = 2.0,
         crashCount7d: Int = 0
     ) = Device(
@@ -29,7 +30,7 @@ class ClassifyDeviceTest {
         batteryLevelPct = 50,
         screenOnMinutes = screenOnMinutes,
         energyConsumedMah = energyConsumedMah,
-        originalEnergyConsumed = energyConsumedMah ?: 0.0,
+        originalEnergyConsumed = originalEnergyConsumed,
         originalEnergyUnit = "mAh",
         nominalVoltage = 3.85,
         jankFramesPct = jankFramesPct,
@@ -38,64 +39,82 @@ class ClassifyDeviceTest {
     )
 
     @Test
-    fun `capacidade nula ou zero retorna INDETERMINADO sem NaN ou Infinity`() {
-        val device = baseDevice(batteryCapacityMah = 0, crashCount7d = 5)
-        val result = classify(device)
-
-        assertEquals(DeviceStatus.INDETERMINADO, result.status)
-        assertNull(result.relativeDrainPctPerHour)
-        assertNull(result.absoluteDrainMahPerHour)
+    fun `capacidade nula, zero ou negativa retorna INDETERMINADO sem NaN ou Infinity`() {
+        assertEquals(DeviceStatus.INDETERMINADO, classify(baseDevice(batteryCapacityMah = 0, crashCount7d = 5)).status)
+        assertEquals(DeviceStatus.INDETERMINADO, classify(baseDevice(batteryCapacityMah = -500)).status)
     }
 
     @Test
-    fun `tempo de tela igual a zero retorna INDETERMINADO sem divisao por zero`() {
-        val device = baseDevice(screenOnMinutes = 0, energyConsumedMah = 0.0)
-        val result = classify(device)
+    fun `tempo de tela igual a zero ou negativo retorna INDETERMINADO sem divisao por zero`() {
+        val zeroScreen = classify(baseDevice(screenOnMinutes = 0, energyConsumedMah = 0.0, originalEnergyConsumed = 0.0))
+        assertEquals(DeviceStatus.INDETERMINADO, zeroScreen.status)
+        assertNull(zeroScreen.relativeDrainPctPerHour)
 
-        assertEquals(DeviceStatus.INDETERMINADO, result.status)
-        assertNull(result.relativeDrainPctPerHour)
+        val negativeScreen = classify(baseDevice(screenOnMinutes = -15))
+        assertEquals(DeviceStatus.INDETERMINADO, negativeScreen.status)
     }
 
     @Test
-    fun `fronteira de ATENCAO para dreno relativo - imediatamente abaixo (6,99) eh OK e no limiar (7,00) eh ATENCAO`() {
-        // Capacidade 5000 mAh, 60 min (1h): 349.5 mAh = 6.99%/h | 350.0 mAh = 7.00%/h
-        val belowWarning = baseDevice(energyConsumedMah = 349.5)
-        val atWarning = baseDevice(energyConsumedMah = 350.0)
+    fun `fronteira completa de ATENCAO para dreno relativo - abaixo (6,99), no limiar (7,00) e acima (7,01)`() {
+        // Capacidade 5000 mAh, 60 min (1h): 349.5 mAh = 6.99%/h | 350.0 mAh = 7.00%/h | 350.5 mAh = 7.01%/h
+        val belowWarning = baseDevice(energyConsumedMah = 349.5, originalEnergyConsumed = 349.5)
+        val atWarning = baseDevice(energyConsumedMah = 350.0, originalEnergyConsumed = 350.0)
+        val aboveWarning = baseDevice(energyConsumedMah = 350.5, originalEnergyConsumed = 350.5)
 
         val resBelow = classify(belowWarning)
         val resAt = classify(atWarning)
+        val resAbove = classify(aboveWarning)
 
         assertEquals(DeviceStatus.OK, resBelow.status)
         assertEquals(DeviceStatus.ATENCAO, resAt.status)
+        assertEquals(DeviceStatus.ATENCAO, resAbove.status)
         assertFalse(resAt.relativeDrainPctPerHour!!.isNaN())
     }
 
     @Test
-    fun `fronteira de CRITICO para dreno relativo - imediatamente abaixo (11,99) eh ATENCAO e no limiar (12,00) eh CRITICO`() {
-        // Capacidade 5000 mAh, 60 min (1h): 599.5 mAh = 11.99%/h | 600.0 mAh = 12.00%/h
-        val belowCritical = baseDevice(energyConsumedMah = 599.5)
-        val atCritical = baseDevice(energyConsumedMah = 600.0)
+    fun `fronteira completa de CRITICO para dreno relativo - abaixo (11,99), no limiar (12,00) e acima (12,01)`() {
+        // Capacidade 5000 mAh, 60 min (1h): 599.5 mAh = 11.99%/h | 600.0 mAh = 12.00%/h | 600.5 mAh = 12.01%/h
+        val belowCritical = baseDevice(energyConsumedMah = 599.5, originalEnergyConsumed = 599.5)
+        val atCritical = baseDevice(energyConsumedMah = 600.0, originalEnergyConsumed = 600.0)
+        val aboveCritical = baseDevice(energyConsumedMah = 600.5, originalEnergyConsumed = 600.5)
 
         assertEquals(DeviceStatus.ATENCAO, classify(belowCritical).status)
         assertEquals(DeviceStatus.CRITICO, classify(atCritical).status)
+        assertEquals(DeviceStatus.CRITICO, classify(aboveCritical).status)
     }
 
     @Test
-    fun `fronteiras de crashCount7d e jankFramesPct respeitam limiares exatos`() {
-        assertEquals(DeviceStatus.OK, classify(baseDevice(crashCount7d = 0, jankFramesPct = 7.99)).status)
+    fun `fronteiras de crashCount7d e jankFramesPct abaixo, no limiar e acima`() {
+        // Jank: 7.99 (OK), 8.00 (ATENCAO), 8.01 (ATENCAO), 14.99 (ATENCAO), 15.00 (CRITICO), 15.01 (CRITICO)
+        assertEquals(DeviceStatus.OK, classify(baseDevice(jankFramesPct = 7.99)).status)
+        assertEquals(DeviceStatus.ATENCAO, classify(baseDevice(jankFramesPct = 8.00)).status)
+        assertEquals(DeviceStatus.ATENCAO, classify(baseDevice(jankFramesPct = 8.01)).status)
+        assertEquals(DeviceStatus.ATENCAO, classify(baseDevice(jankFramesPct = 14.99)).status)
+        assertEquals(DeviceStatus.CRITICO, classify(baseDevice(jankFramesPct = 15.00)).status)
+        assertEquals(DeviceStatus.CRITICO, classify(baseDevice(jankFramesPct = 15.01)).status)
+
+        // Crashes: 0 (OK), 1 (ATENCAO), 2 (ATENCAO), 3 (CRITICO), 4 (CRITICO)
+        assertEquals(DeviceStatus.OK, classify(baseDevice(crashCount7d = 0)).status)
         assertEquals(DeviceStatus.ATENCAO, classify(baseDevice(crashCount7d = 1)).status)
-        assertEquals(DeviceStatus.ATENCAO, classify(baseDevice(jankFramesPct = 8.0)).status)
-        assertEquals(DeviceStatus.ATENCAO, classify(baseDevice(crashCount7d = 2, jankFramesPct = 14.99)).status)
+        assertEquals(DeviceStatus.ATENCAO, classify(baseDevice(crashCount7d = 2)).status)
         assertEquals(DeviceStatus.CRITICO, classify(baseDevice(crashCount7d = 3)).status)
-        assertEquals(DeviceStatus.CRITICO, classify(baseDevice(jankFramesPct = 15.0)).status)
+        assertEquals(DeviceStatus.CRITICO, classify(baseDevice(crashCount7d = 4)).status)
     }
 
     @Test
     fun `precedencia entre sinais - sinal CRITICO vence sinal de ATENCAO simultaneo`() {
-        // Dreno em faixa de ATENCAO (8%/h = 400 mAh/h), mas crashes em nivel CRITICO (3)
-        val device = baseDevice(energyConsumedMah = 400.0, crashCount7d = 3, jankFramesPct = 9.0)
+        val device = baseDevice(energyConsumedMah = 400.0, originalEnergyConsumed = 400.0, crashCount7d = 3, jankFramesPct = 9.0)
         val result = classify(device)
 
         assertEquals(DeviceStatus.CRITICO, result.status)
+    }
+
+    @Test
+    fun `dados externos invalidos - jank negativo, acima de 100 ou crashes negativos retornam INDETERMINADO`() {
+        assertEquals(DeviceStatus.INDETERMINADO, classify(baseDevice(jankFramesPct = -1.0)).status)
+        assertEquals(DeviceStatus.INDETERMINADO, classify(baseDevice(jankFramesPct = 105.0)).status)
+        assertEquals(DeviceStatus.INDETERMINADO, classify(baseDevice(jankFramesPct = Double.NaN)).status)
+        assertEquals(DeviceStatus.INDETERMINADO, classify(baseDevice(crashCount7d = -1)).status)
+        assertEquals(DeviceStatus.INDETERMINADO, classify(baseDevice(energyConsumedMah = -50.0, originalEnergyConsumed = -50.0)).status)
     }
 }

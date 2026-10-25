@@ -11,7 +11,7 @@ class DeviceMapper {
         val voltage = dto.nominalVoltage
 
         val normalizedEnergyMah: Double? = when {
-            rawEnergy < 0.0 -> null
+            rawEnergy < 0.0 || rawEnergy.isNaN() || rawEnergy.isInfinite() -> null
             unit.equals("mAh", ignoreCase = true) -> rawEnergy
             unit.equals("mWh", ignoreCase = true) -> {
                 if (voltage != null && voltage > 0.0 && !voltage.isNaN() && !voltage.isInfinite()) {
@@ -22,6 +22,10 @@ class DeviceMapper {
             }
             else -> null
         }
+
+        // Preserva valores invalidos/ausentes como sentinelas (-1) para que o dominio classifique como INDETERMINADO
+        val jank = dto.jankFramesPct ?: -1.0
+        val crashes = dto.crashCount7d ?: -1
 
         return Device(
             id = dto.id?.trim().takeUnless { it.isNullOrEmpty() } ?: "UNKNOWN-ID",
@@ -34,11 +38,11 @@ class DeviceMapper {
             batteryLevelPct = (dto.batteryLevelPct ?: 0).coerceIn(0, 100),
             screenOnMinutes = dto.screenOnMinutes ?: 0,
             energyConsumedMah = normalizedEnergyMah,
-            originalEnergyConsumed = dto.energyConsumed ?: 0.0,
+            originalEnergyConsumed = dto.energyConsumed ?: -1.0,
             originalEnergyUnit = unit.ifEmpty { "N/A" },
             nominalVoltage = voltage,
-            jankFramesPct = dto.jankFramesPct ?: 0.0,
-            crashCount7d = dto.crashCount7d ?: 0,
+            jankFramesPct = jank,
+            crashCount7d = crashes,
             lastSeen = dto.lastSeen ?: "N/A"
         )
     }

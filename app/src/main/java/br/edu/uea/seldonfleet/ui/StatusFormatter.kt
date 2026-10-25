@@ -21,13 +21,17 @@ object StatusFormatter {
         val details = result.reasons.joinToString("; ") { reason ->
             when (reason.code) {
                 ReasonCode.MISSING_BATTERY_CAPACITY ->
-                    "capacidade da bateria ausente ou igual a zero (${reason.observedValue.toInt()} mAh), impedindo o cálculo do dreno relativo"
+                    "capacidade da bateria ausente ou inválida (${reason.observedValue.toInt()} mAh), impedindo o cálculo do dreno relativo"
                 ReasonCode.ZERO_SCREEN_TIME ->
-                    "tempo de tela igual a zero (${reason.observedValue.toInt()} min), impedindo divisão para cálculo de dreno horário"
+                    "tempo de tela igual ou inferior a zero (${reason.observedValue.toInt()} min), impedindo divisão para cálculo de dreno horário"
                 ReasonCode.INVALID_ENERGY_CONVERSION ->
                     "unidade de energia ou tensão nominal inválida para normalização em mAh"
                 ReasonCode.NEGATIVE_ENERGY ->
-                    "consumo energético negativo inválido (${fmt(reason.observedValue)} mAh)"
+                    "consumo energético negativo ou ausente inválido (${fmt(reason.observedValue)} mAh)"
+                ReasonCode.INVALID_JANK_METRIC ->
+                    "percentual de jank fora do intervalo físico [0%, 100%] (${fmt(reason.observedValue)}%)"
+                ReasonCode.INVALID_CRASH_METRIC ->
+                    "contagem de falhas negativa ou ausente (${reason.observedValue.toInt()})"
                 ReasonCode.HIGH_RELATIVE_DRAIN ->
                     "dreno de ${fmt(reason.observedValue)}%/h, acima do limiar de ${fmt(reason.thresholdValue)}%/h"
                 ReasonCode.HIGH_CRASH_COUNT ->

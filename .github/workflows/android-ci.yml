@@ -21,10 +21,8 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.6'
+      - name: Garantir permissao de execucao do Gradle Wrapper
+        run: chmod +x ./gradlew
 
       - name: Verificar isolamento arquitetural de domain (REQ-04)
         run: |
@@ -34,13 +32,13 @@ jobs:
           fi
 
       - name: Executar Analise Estatica (Android Lint - REQ-09)
-        run: gradle lintDebug
+        run: ./gradlew lintDebug
 
-      - name: Executar Testes Unitarios na JVM e Auditoria Trilha B (REQ-08, REQ-09)
-        run: gradle testDebugUnitTest
+      - name: Executar Testes Unitarios na JVM via ./gradlew test (REQ-08, REQ-09)
+        run: ./gradlew test
 
       - name: Gerar APK de Debug para instalacao
-        run: gradle assembleDebug
+        run: ./gradlew assembleDebug
 
       - name: Disponibilizar APK para download nos Artifacts
         uses: actions/upload-artifact@v4

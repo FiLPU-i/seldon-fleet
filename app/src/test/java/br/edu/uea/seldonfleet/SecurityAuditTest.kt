@@ -9,7 +9,8 @@ import java.io.File
  * Trilha B - Seguranca e Automacao de Validacoes (Secao 10).
  * Verificacao automatizada executada no pipeline de build/test que falha a integracao
  * caso diretivas de endurecimento do AndroidManifest, isolamento de dominio ou
- * vazamento de identificadores em logs sejam violadas.
+ * vazamento de identificadores em logs (incluindo chamadas multilinha e loggers alternativos)
+ * sejam violadas.
  */
 class SecurityAuditTest {
 
@@ -25,13 +26,10 @@ class SecurityAuditTest {
 
         val content = manifestFile.readText()
 
-        // REQ-01: Proibido acesso a rede
         assertFalse(
             "Violacao REQ-01/Seguranca: Permissao INTERNET nao permitida",
             content.contains("android.permission.INTERNET")
         )
-
-        // Trilha B: Hardening de backup, trafego claro e debuggable
         assertTrue(
             "Violacao Trilha B: android:allowBackup=\"false\" obrigatorio",
             content.contains("android:allowBackup=\"false\"")
@@ -70,7 +68,7 @@ class SecurityAuditTest {
     }
 
     @Test
-    fun `Trilha B - nenhum identificador de dispositivo pode vazar em chamadas de Log`() {
+    fun `Trilha B - nenhum identificador de dispositivo pode vazar em chamadas de Log simples ou multilinha`() {
         val srcDir = File(resolveAppDir(), "src/main/java")
         assertTrue("Diretorio de codigo-fonte deve existir", srcDir.exists())
 
@@ -78,10 +76,9 @@ class SecurityAuditTest {
         srcDir.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .forEach { file ->
-                file.readLines().forEachIndexed { idx, line ->
-                    if (isSensitiveLogViolation(line)) {
-                        violations.add("${file.name}:${idx + 1} -> ${line.trim()}")
-                    }
+                val fileViolations = findSensitiveLogViolationsInSource(file.readText())
+                fileViolations.forEach { snippet ->
+                    violations.add("${file.name} -> $snippet")
                 }
             }
 
@@ -92,37 +89,105 @@ class SecurityAuditTest {
     }
 
     @Test
-    fun `Trilha B - verificador detecta vazamento real e ignora falsos positivos conhecidos`() {
-        // Caso 1: Vazamento real em Log do Android -> DEVE falhar na auditoria
-        val realLeak = """Log.d("FleetTracker", "Processando aparelho " + device.id)"""
-        assertTrue("Deveria detectar vazamento real de device.id", isSensitiveLogViolation(realLeak))
+    fun `Trilha B - verificador detecta vazamentos simples, multilinha, loggers alternativos e valida falsos positivos`() {
+        // Caso 1: Vazamento direto em Log.d -> DEVE detectar
+        val directLeak = """Log.d("FleetTracker", "Processando aparelho " + device.id)"""
+        assertTrue(findSensitiveLogViolationsInSource(directLeak).isNotEmpty())
 
-        // Caso 2: Falso positivo 1 - Comentario documentando o que nao fazer -> NAO deve acusar erro
-        val commentedLine = """// Exemplo proibido: Log.d("TAG", device.id)"""
-        assertFalse("Nao deve acusar falso positivo em comentarios", isSensitiveLogViolation(commentedLine))
+        // Caso 2: Vazamento distribuido em multiplas linhas -> DEVE detectar
+        val multilineLeak = """
+            fun debugDevice() {
+                android.util.Log.w(
+                    "FleetAudit",
+                    "Falha no dispositivo: " +
+                        device.id
+                )
+            }
+        """.trimIndent()
+        assertTrue(
+            "Deve detectar vazamento mesmo quebrado em varias linhas",
+            findSensitiveLogViolationsInSource(multilineLeak).isNotEmpty()
+        )
 
-        // Caso 3: Falso positivo 2 - Variavel matematicamente chamada 'id' ou texto sem dado pessoal
-        // ou linha explicitamente auditada com @SecurityAuditIgnore -> NAO deve acusar erro
-        val auditedSafeLine = """Log.i("Audit", "Contagem concluida") // @SecurityAuditIgnore"""
-        assertFalse("Nao deve acusar falso positivo em linha auditada sem PII", isSensitiveLogViolation(auditedSafeLine))
+        // Caso 3: Chamadas alternativas de logging (Timber, Logger, System.err) -> DEVE detectar
+        val timberLeak = """Timber.e("Erro em %s", deviceId)"""
+        assertTrue(
+            "Deve detectar vazamento em bibliotecas alternativas como Timber/Logger",
+            findSensitiveLogViolationsInSource(timberLeak).isNotEmpty()
+        )
+
+        // Caso 4: Supressao sem justificativa revisavel -> DEVE continuar falhando!
+        val unjustifiedSuppression = """Log.d("TAG", device.id) // @SecurityAuditIgnore"""
+        assertTrue(
+            "Supressao sem motivo explicito e sem aprovacao nao deve isentar vazamento real",
+            findSensitiveLogViolationsInSource(unjustifiedSuppression).isNotEmpty()
+        )
+
+        // Caso 5: Falso positivo em comentario de bloco ou de linha -> NAO deve acusar erro
+        val commentedCode = """
+            /*
+             * Exemplo proibido na documentacao:
+             * Log.d("TAG", device.id)
+             */
+            // println(device.id)
+        """.trimIndent()
+        assertTrue(
+            "Comentarios nao devem gerar falso positivo",
+            findSensitiveLogViolationsInSource(commentedCode).isEmpty()
+        )
+
+        // Caso 6: Falso positivo em log de métrica agregada com revisao documentada (sem PII real)
+        val reviewedAggregateLog = """
+            Log.i("Audit", "Total avaliado: 30") // @SecurityAuditIgnore(reason="Metrica agregada sem ID individual - Revisado SecOps")
+        """.trimIndent()
+        assertTrue(
+            "Linha sem ID individual e com justificativa auditavel nao deve falhar",
+            findSensitiveLogViolationsInSource(reviewedAggregateLog).isEmpty()
+        )
     }
 
     companion object {
-        private val LOG_CALL_REGEX = Regex("""\b(Log\.[vdiwe]|println|System\.out\.print)\s*\(""")
-        private val SENSITIVE_ID_REGEX = Regex("""\b(device\.id|dto\.id|deviceId)\b|DEV-\d{4}""")
+        private val BLOCK_COMMENT_REGEX = Regex("""/\*[\s\S]*?\*/""")
+        private val LINE_COMMENT_REGEX = Regex("""//.*$""", RegexOption.MULTILINE)
+        private val REVIEWED_SUPPRESSION_REGEX =
+            Regex("""@SecurityAuditIgnore\(\s*reason\s*=\s*"[^"]{10,}"\s*\)""")
 
-        fun isSensitiveLogViolation(line: String): Boolean {
-            val trimmed = line.trim()
-            // Tratamento explicito de falsos positivos: ignora comentarios e supressoes auditadas
-            if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
-                return false
+        // Cobre android.util.Log, Log.*, Timber.*, Logger.*, println, print, System.out/err
+        private val LOG_STATEMENT_MULTILINE_REGEX = Regex(
+            """\b(?:(?:android\.util\.)?Log\.(?:[vdiwe]|wtf)|Timber\.(?:[vdiwe]|wtf)|Logger\.(?:[vdiwe]|info|warn|error|debug)|println|print|System\.(?:out|err)\.print(?:ln)?)\s*\([^;{}]*?\)""",
+            setOf(RegexOption.DOT_MATCHES_ALL)
+        )
+
+        private val SENSITIVE_ID_REGEX =
+            Regex("""\b(?:device\.id|dto\.id|item\.device\.id|deviceId)\b|DEV-\d{4}""")
+
+        fun findSensitiveLogViolationsInSource(sourceCode: String): List<String> {
+            // 1. Remove comentarios de bloco /* ... */
+            val withoutBlockComments = BLOCK_COMMENT_REGEX.replace(sourceCode, "")
+
+            // 2. Remove linhas que tenham supressao revisada (@SecurityAuditIgnore(reason="..."))
+            //    APENAS se nao contiverem referencia direta a identificadores de dispositivo
+            val filteredLines = withoutBlockComments.lines().map { line ->
+                val hasReviewedReason = REVIEWED_SUPPRESSION_REGEX.containsMatchIn(line)
+                val codePart = line.substringBefore("//")
+                if (hasReviewedReason && !SENSITIVE_ID_REGEX.containsMatchIn(codePart)) {
+                    ""
+                } else {
+                    codePart
+                }
+            }.joinToString("\n")
+
+            val withoutComments = LINE_COMMENT_REGEX.replace(filteredLines, "")
+
+            // 3. Inspeciona todas as chamadas de log (mesmo que distribuidas em varias linhas)
+            val violations = mutableListOf<String>()
+            LOG_STATEMENT_MULTILINE_REGEX.findAll(withoutComments).forEach { match ->
+                val callText = match.value
+                if (SENSITIVE_ID_REGEX.containsMatchIn(callText)) {
+                    violations.add(callText.replace(Regex("""\s+"""), " ").trim())
+                }
             }
-            if (trimmed.contains("@SecurityAuditIgnore")) {
-                return false
-            }
-            val codeWithoutInlineComment = trimmed.substringBefore("//")
-            return LOG_CALL_REGEX.containsMatchIn(codeWithoutInlineComment) &&
-                SENSITIVE_ID_REGEX.containsMatchIn(codeWithoutInlineComment)
+            return violations
         }
     }
 }
