@@ -65,7 +65,7 @@ fun FleetListScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Seldon Fleet", fontWeight = FontWeight.Bold)
+                        Text("MONI-T • Seldon Fleet", fontWeight = FontWeight.Bold)
                         Text(
                             text = "Monitoramento de Telemetria (${uiState.allDevices.size} aparelhos)",
                             fontSize = 12.sp,
