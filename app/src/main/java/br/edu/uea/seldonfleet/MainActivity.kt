@@ -19,7 +19,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Injeção de dependência manual (Seção 6.3)
         val assetSource = AssetFleetSource(applicationContext)
         val mapper = DeviceMapper()
         val repository = FleetRepositoryImpl(applicationContext, assetSource, mapper)
@@ -42,6 +41,7 @@ class MainActivity : ComponentActivity() {
                     FleetListScreen(
                         uiState = uiState,
                         onSelectFilter = { viewModel.onSelectFilter(it) },
+                        onToggleFavoritesFilter = { viewModel.onToggleFavoritesFilter() },
                         onToggleFavorite = { viewModel.onToggleFavorite(it) },
                         onDeviceClick = { viewModel.onOpenDetail(it) }
                     )

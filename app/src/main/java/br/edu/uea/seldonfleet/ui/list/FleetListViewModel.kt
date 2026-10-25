@@ -17,6 +17,8 @@ data class FleetUiState(
     val allDevices: List<EvaluatedDevice> = emptyList(),
     val filteredDevices: List<EvaluatedDevice> = emptyList(),
     val selectedFilter: DeviceStatus? = null,
+    val onlyFavorites: Boolean = false,
+    val favoriteCount: Int = 0,
     val countsByStatus: Map<DeviceStatus, Int> = emptyMap(),
     val selectedDevice: EvaluatedDevice? = null,
     val isLoading: Boolean = true
@@ -29,6 +31,7 @@ class FleetListViewModel(
 
     private val _rawDevices = MutableStateFlow<List<EvaluatedDevice>>(emptyList())
     private val _selectedFilter = MutableStateFlow<DeviceStatus?>(null)
+    private val _onlyFavorites = MutableStateFlow(false)
     private val _selectedDeviceId = MutableStateFlow<String?>(null)
 
     private val _uiState = MutableStateFlow(FleetUiState())
@@ -53,18 +56,21 @@ class FleetListViewModel(
                 _rawDevices,
                 repository.getFavoriteIds(),
                 _selectedFilter,
+                _onlyFavorites,
                 _selectedDeviceId
-            ) { list, favIds, filter, detailId ->
+            ) { list, favIds, filter, favOnly, detailId ->
+                // Favoritos sobem automaticamente para o topo da lista mantendo a ordem original de ID
                 val withFavs = list.map { item ->
                     item.copy(isFavorite = favIds.contains(item.device.id))
-                }
+                }.sortedByDescending { it.isFavorite }
+
                 val counts = DeviceStatus.values().associateWith { status ->
                     withFavs.count { it.classification.status == status }
                 }
-                val filtered = if (filter == null) {
-                    withFavs
-                } else {
-                    withFavs.filter { it.classification.status == filter }
+                val filtered = withFavs.filter { item ->
+                    val matchesStatus = (filter == null) || (item.classification.status == filter)
+                    val matchesFav = !favOnly || item.isFavorite
+                    matchesStatus && matchesFav
                 }
                 val detail = withFavs.find { it.device.id == detailId }
 
@@ -72,6 +78,8 @@ class FleetListViewModel(
                     allDevices = withFavs,
                     filteredDevices = filtered,
                     selectedFilter = filter,
+                    onlyFavorites = favOnly,
+                    favoriteCount = favIds.size,
                     countsByStatus = counts,
                     selectedDevice = detail,
                     isLoading = false
@@ -83,7 +91,15 @@ class FleetListViewModel(
     }
 
     fun onSelectFilter(status: DeviceStatus?) {
+        _onlyFavorites.value = false
         _selectedFilter.value = status
+    }
+
+    fun onToggleFavoritesFilter() {
+        _onlyFavorites.value = !_onlyFavorites.value
+        if (_onlyFavorites.value) {
+            _selectedFilter.value = null
+        }
     }
 
     fun onToggleFavorite(deviceId: String) {

@@ -56,6 +56,7 @@ import br.edu.uea.seldonfleet.ui.theme.StatusWarningColor
 fun FleetListScreen(
     uiState: FleetUiState,
     onSelectFilter: (DeviceStatus?) -> Unit,
+    onToggleFavoritesFilter: () -> Unit,
     onToggleFavorite: (String) -> Unit,
     onDeviceClick: (String) -> Unit
 ) {
@@ -87,9 +88,12 @@ fun FleetListScreen(
         ) {
             FilterBar(
                 totalCount = uiState.allDevices.size,
+                favoriteCount = uiState.favoriteCount,
+                onlyFavorites = uiState.onlyFavorites,
                 countsByStatus = uiState.countsByStatus,
                 selectedFilter = uiState.selectedFilter,
-                onSelectFilter = onSelectFilter
+                onSelectFilter = onSelectFilter,
+                onToggleFavoritesFilter = onToggleFavoritesFilter
             )
 
             LazyColumn(
@@ -113,9 +117,12 @@ fun FleetListScreen(
 @Composable
 private fun FilterBar(
     totalCount: Int,
+    favoriteCount: Int,
+    onlyFavorites: Boolean,
     countsByStatus: Map<DeviceStatus, Int>,
     selectedFilter: DeviceStatus?,
-    onSelectFilter: (DeviceStatus?) -> Unit
+    onSelectFilter: (DeviceStatus?) -> Unit,
+    onToggleFavoritesFilter: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -125,15 +132,20 @@ private fun FilterBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         FilterChip(
-            selected = selectedFilter == null,
+            selected = selectedFilter == null && !onlyFavorites,
             onClick = { onSelectFilter(null) },
             label = { Text("Todos ($totalCount)") }
+        )
+        FilterChip(
+            selected = onlyFavorites,
+            onClick = onToggleFavoritesFilter,
+            label = { Text("★ Favoritos ($favoriteCount)") }
         )
         DeviceStatus.values().forEach { status ->
             val count = countsByStatus[status] ?: 0
             val label = StatusFormatter.labelFor(status)
             FilterChip(
-                selected = selectedFilter == status,
+                selected = selectedFilter == status && !onlyFavorites,
                 onClick = { onSelectFilter(status) },
                 label = { Text("$label ($count)") }
             )

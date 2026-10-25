@@ -1,0 +1,42 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Moldura interna do visor -->
+    <path
+        android:strokeColor="#00B0FF"
+        android:strokeWidth="2.2"
+        android:fillColor="#00000000"
+        android:pathData="M24,26h60c2.2,0 4,1.8 4,4v48c0,2.2 -1.8,4 -4,4h-60c-2.2,0 -4,-1.8 -4,-4v-48c0,-2.2 1.8,-4 4,-4z" />
+    <!-- Contorno da Bateria no topo do visor -->
+    <path
+        android:strokeColor="#00E676"
+        android:strokeWidth="2.0"
+        android:fillColor="#00000000"
+        android:pathData="M38,33h26v11h-26z" />
+    <!-- Polo positivo da bateria -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M64,36h3v5h-3z" />
+    <!-- Barras de nivel de carga da bateria (75% / 3 barras acesas) -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M41,35.5h5v6h-5zM48,35.5h5v6h-5zM55,35.5h5v6h-5z" />
+    <!-- Simbolo de % ao lado da bateria -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M71,35a1.5,1.5 0,1 0,3 0a1.5,1.5 0,1 0,-3 0zM76,42a1.5,1.5 0,1 0,3 0a1.5,1.5 0,1 0,-3 0z" />
+    <path
+        android:strokeColor="#00E676"
+        android:strokeWidth="1.5"
+        android:pathData="M78,34L72,43" />
+    <!-- Onda de Osciloscopio (Sinal de Dreno/Telemetria em Verde Fosforo Brilhante) -->
+    <path
+        android:strokeColor="#00E676"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M24,62h12l5,-12l6,22l7,-26l6,20l4,-8h6l4,4h10" />
+</vector>
