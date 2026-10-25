@@ -54,3 +54,19 @@ As regras sao avaliadas nesta ordem exata (a primeira que atender define o statu
 1. **Consumo em Segundo Plano (Tela Desligada):** A formula divide toda a energia gasta apenas pelos minutos de tela ligada (`screenOnMinutes`). Se um aparelho gastar muita bateria com a tela apagada (servicos em background, sincronizacao ou sinal movel fraco), o `drenoRelativo` sera inflado e podera gerar um falso `CRITICO`.
 2. **Janela de Tempo Diferente nos Crashes:** O campo `crashCount7d` soma falhas de 7 dias inteiros, enquanto bateria e tempo de tela refletem apenas o ciclo recente. Um aparelho que teve 3 falhas ha 5 dias num app ja corrigido continuara como `CRITICO` hoje.
 3. **Mesmo Limiar de Jank para Hardware Diferente:** Cobrar o mesmo limite de `jankFramesPct` (8% e 15%) de aparelhos de entrada (`tier = low`, 60 Hz) e aparelhos topo de linha (`tier = high`, 120 Hz) nao considera a diferenca de capacidade grafica entre as categorias.
+
+---
+
+## 4. Trilha B - Seguranca, Automacao de Validacoes e LGPD (Secao 10)
+
+### 4.1. Enquadramento dos Dados de Telemetria sob a LGPD (Lei 13.709/2018)
+Embora o arquivo `frota.json` nao contenha nome civil ou CPF, a Lei Geral de Protecao de Dados (Art. 5, inciso I) define **dado pessoal** como qualquer informacao relacionada a pessoa natural **identificada ou identificavel**. No contexto corporativo ou de testes de campo (PD&I):
+
+* **Identificador do Dispositivo (`id`, ex.: `DEV-0137`):** Quando vinculado a uma planilha de cautela de laboratorio, matricula de colaborador ou conta Google/ corporativa, torna o usuario **indiretamente identificavel**. Portanto, e classificado como **dado pessoal pseudonimizado**, jamais devendo ser exposto em `Logcat` (onde outros processos ou ferramentas de diagnostico sem permissao poderiam captura-lo).
+* **Ultimo Contato (`lastSeen`) e Tempo de Tela (`screenOnMinutes`):** Isoladamente sao metricas tecnicas, mas combinados ao `id` revelam padroes comportamentais e horarios de atividade do portador do aparelho (Teoria do Mosaico).
+* **Atributos de Hardware (`soc`, `ramMb`, `batteryCapacityMah`, `nominalVoltage`):** Sao dados estritamente tecnicos do modelo comercial, nao constituindo dado pessoal quando desvinculados do identificador unico (`id`).
+
+### 4.2. Controles Implementados e Tratamento de Falsos Positivos
+1. **Hardening do Manifesto:** `allowBackup="false"`, `usesCleartextTraffic="false"`, ausencia de permissao `INTERNET` e controle explicito de `android:exported`.
+2. **Auditoria Automatizada no Build (`SecurityAuditTest.kt`):** O pipeline de CI falha automaticamente caso algum desenvolvedor introduza `Log.d`/`println` expondo `device.id` ou `DEV-XXXX`, ou caso a camada `domain/` importe pacotes `android.*`.
+3. **Tratamento de Falso Positivo:** Um verificador estatico ingenuo falharia ao encontrar a palavra `id` dentro de comentarios explicativos ou em logs genericos de auditoria sem dados sensiveis. O verificador implementado ignora linhas comentadas (`//`, `/*`) e suporta a anotacao de supressao auditada `@SecurityAuditIgnore`, testada explicitamente na suite JVM.

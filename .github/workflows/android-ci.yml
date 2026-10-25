@@ -1,0 +1,49 @@
+name: Seldon Fleet CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  quality-and-build:
+    name: Analise Estatica, Testes JVM e Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.6'
+
+      - name: Verificar isolamento arquitetural de domain (REQ-04)
+        run: |
+          if grep -r "import android" app/src/main/java/br/edu/uea/seldonfleet/domain/; then
+            echo "Erro: import android encontrado em domain/"
+            exit 1
+          fi
+
+      - name: Executar Analise Estatica (Android Lint - REQ-09)
+        run: gradle lintDebug
+
+      - name: Executar Testes Unitarios na JVM e Auditoria Trilha B (REQ-08, REQ-09)
+        run: gradle testDebugUnitTest
+
+      - name: Gerar APK de Debug para instalacao
+        run: gradle assembleDebug
+
+      - name: Disponibilizar APK para download nos Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: seldon-fleet-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
