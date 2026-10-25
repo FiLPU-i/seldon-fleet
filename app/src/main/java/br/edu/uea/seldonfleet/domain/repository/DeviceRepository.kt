@@ -7,4 +7,5 @@ interface DeviceRepository {
     suspend fun getDevices(): List<Device>
     fun getFavoriteIds(): Flow<Set<String>>
     suspend fun toggleFavorite(deviceId: String)
+    suspend fun clearFavorites()
 }

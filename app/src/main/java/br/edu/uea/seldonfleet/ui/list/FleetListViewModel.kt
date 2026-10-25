@@ -59,7 +59,6 @@ class FleetListViewModel(
                 _onlyFavorites,
                 _selectedDeviceId
             ) { list, favIds, filter, favOnly, detailId ->
-                // Favoritos sobem automaticamente para o topo da lista mantendo a ordem original de ID
                 val withFavs = list.map { item ->
                     item.copy(isFavorite = favIds.contains(item.device.id))
                 }.sortedByDescending { it.isFavorite }
@@ -105,6 +104,13 @@ class FleetListViewModel(
     fun onToggleFavorite(deviceId: String) {
         viewModelScope.launch {
             repository.toggleFavorite(deviceId)
+        }
+    }
+
+    fun onClearFavorites() {
+        viewModelScope.launch {
+            repository.clearFavorites()
+            _onlyFavorites.value = false
         }
     }
 

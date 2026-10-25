@@ -47,4 +47,10 @@ class FleetRepositoryImpl(
             }
         }
     }
+
+    override suspend fun clearFavorites() {
+        context.dataStore.edit { preferences ->
+            preferences[FAVORITES_KEY] = emptySet()
+        }
+    }
 }

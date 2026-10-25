@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
                         onSelectFilter = { viewModel.onSelectFilter(it) },
                         onToggleFavoritesFilter = { viewModel.onToggleFavoritesFilter() },
                         onToggleFavorite = { viewModel.onToggleFavorite(it) },
+                        onClearFavorites = { viewModel.onClearFavorites() },
                         onDeviceClick = { viewModel.onOpenDetail(it) }
                     )
                 }
