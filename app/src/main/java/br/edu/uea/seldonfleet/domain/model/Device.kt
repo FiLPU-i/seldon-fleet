@@ -11,11 +11,11 @@ data class Device(
     val batteryLevelPct: Int,
     val screenOnMinutes: Int,
     val energyConsumedMah: Double?,
-    val originalEnergyConsumed: Double,
+    val originalEnergyConsumed: Double?,
     val originalEnergyUnit: String,
     val nominalVoltage: Double?,
-    val jankFramesPct: Double,
-    val crashCount7d: Int,
+    val jankFramesPct: Double?,
+    val crashCount7d: Int?,
     val lastSeen: String
 )
 
@@ -24,7 +24,9 @@ enum class ReasonCode {
     ZERO_SCREEN_TIME,
     INVALID_ENERGY_CONVERSION,
     NEGATIVE_ENERGY,
+    MISSING_JANK_METRIC,
     INVALID_JANK_METRIC,
+    MISSING_CRASH_METRIC,
     INVALID_CRASH_METRIC,
     HIGH_RELATIVE_DRAIN,
     HIGH_CRASH_COUNT,

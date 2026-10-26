@@ -146,20 +146,29 @@ fun DeviceDetailScreen(
                     AttributeRow("Nível Atual de Bateria", "${device.batteryLevelPct}%")
                     AttributeRow(
                         "Consumo Normalizado",
-                        device.energyConsumedMah?.let { "${StatusFormatter.fmt(it)} mAh (Original: ${StatusFormatter.fmt(device.originalEnergyConsumed)} ${device.originalEnergyUnit})" }
-                            ?: "Inválido (${device.originalEnergyConsumed} ${device.originalEnergyUnit})"
+                        if (device.energyConsumedMah != null && device.originalEnergyConsumed != null) {
+                            "${StatusFormatter.fmt(device.energyConsumedMah)} mAh (Original: ${StatusFormatter.fmt(device.originalEnergyConsumed)} ${device.originalEnergyUnit})"
+                        } else {
+                            "Inválido/Ausente (${device.originalEnergyConsumed ?: "N/A"} ${device.originalEnergyUnit})"
+                        }
                     )
                     AttributeRow(
                         "Dreno Absoluto / Relativo",
                         if (result.absoluteDrainMahPerHour != null && result.relativeDrainPctPerHour != null) {
                             "${StatusFormatter.fmt(result.absoluteDrainMahPerHour)} mAh/h (${StatusFormatter.fmt(result.relativeDrainPctPerHour)}%/h)"
                         } else {
-                            "Indeterminado (Divisor nulo)"
+                            "Indeterminado (Divisor nulo ou métrica inválida)"
                         }
                     )
                     AttributeRow("Tempo de Tela Ativa", "${device.screenOnMinutes} min")
-                    AttributeRow("Quadros Perdidos (Jank)", "${StatusFormatter.fmt(device.jankFramesPct)}%")
-                    AttributeRow("Falhas Recentes (7 dias)", "${device.crashCount7d}")
+                    AttributeRow(
+                        "Quadros Perdidos (Jank)",
+                        device.jankFramesPct?.let { "${StatusFormatter.fmt(it)}%" } ?: "Ausente"
+                    )
+                    AttributeRow(
+                        "Falhas Recentes (7 dias)",
+                        device.crashCount7d?.toString() ?: "Ausente"
+                    )
                     AttributeRow("Último Contato (UTC)", device.lastSeen)
                 }
             }

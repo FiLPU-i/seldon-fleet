@@ -31,23 +31,35 @@ class ClassifyDevice {
                 ReasonDetail(ReasonCode.ZERO_SCREEN_TIME, device.screenOnMinutes.toDouble(), 0.0)
             )
         }
-        if (device.originalEnergyConsumed < 0.0) {
+        if (device.originalEnergyConsumed != null && device.originalEnergyConsumed < 0.0) {
             indeterminadoReasons.add(
                 ReasonDetail(ReasonCode.NEGATIVE_ENERGY, device.originalEnergyConsumed, 0.0)
             )
         } else if (device.energyConsumedMah == null || device.energyConsumedMah.isNaN() || device.energyConsumedMah.isInfinite()) {
             indeterminadoReasons.add(
-                ReasonDetail(ReasonCode.INVALID_ENERGY_CONVERSION, device.originalEnergyConsumed, 0.0)
+                ReasonDetail(ReasonCode.INVALID_ENERGY_CONVERSION, device.originalEnergyConsumed ?: 0.0, 0.0)
             )
         }
-        if (device.jankFramesPct.isNaN() || device.jankFramesPct.isInfinite() || device.jankFramesPct < 0.0 || device.jankFramesPct > 100.0) {
+
+        val jank = device.jankFramesPct
+        if (jank == null) {
             indeterminadoReasons.add(
-                ReasonDetail(ReasonCode.INVALID_JANK_METRIC, device.jankFramesPct, 100.0)
+                ReasonDetail(ReasonCode.MISSING_JANK_METRIC, 0.0, 100.0)
+            )
+        } else if (jank.isNaN() || jank.isInfinite() || jank < 0.0 || jank > 100.0) {
+            indeterminadoReasons.add(
+                ReasonDetail(ReasonCode.INVALID_JANK_METRIC, jank, 100.0)
             )
         }
-        if (device.crashCount7d < 0) {
+
+        val crashes = device.crashCount7d
+        if (crashes == null) {
             indeterminadoReasons.add(
-                ReasonDetail(ReasonCode.INVALID_CRASH_METRIC, device.crashCount7d.toDouble(), 0.0)
+                ReasonDetail(ReasonCode.MISSING_CRASH_METRIC, 0.0, 0.0)
+            )
+        } else if (crashes < 0) {
+            indeterminadoReasons.add(
+                ReasonDetail(ReasonCode.INVALID_CRASH_METRIC, crashes.toDouble(), 0.0)
             )
         }
 
@@ -61,6 +73,9 @@ class ClassifyDevice {
         }
 
         val energyMah = device.energyConsumedMah!!
+        val validJank = jank!!
+        val validCrashes = crashes!!
+
         val screenHours = device.screenOnMinutes / 60.0
         val absoluteDrain = energyMah / screenHours
         val relativeDrain = (absoluteDrain / device.batteryCapacityMah) * 100.0
@@ -80,14 +95,14 @@ class ClassifyDevice {
                 ReasonDetail(ReasonCode.HIGH_RELATIVE_DRAIN, relativeDrain, CRITICAL_DRAIN_PCT_PER_HOUR)
             )
         }
-        if (device.crashCount7d >= CRITICAL_CRASH_COUNT) {
+        if (validCrashes >= CRITICAL_CRASH_COUNT) {
             criticalReasons.add(
-                ReasonDetail(ReasonCode.HIGH_CRASH_COUNT, device.crashCount7d.toDouble(), CRITICAL_CRASH_COUNT.toDouble())
+                ReasonDetail(ReasonCode.HIGH_CRASH_COUNT, validCrashes.toDouble(), CRITICAL_CRASH_COUNT.toDouble())
             )
         }
-        if (device.jankFramesPct >= CRITICAL_JANK_PCT) {
+        if (validJank >= CRITICAL_JANK_PCT) {
             criticalReasons.add(
-                ReasonDetail(ReasonCode.HIGH_JANK_FRAMES, device.jankFramesPct, CRITICAL_JANK_PCT)
+                ReasonDetail(ReasonCode.HIGH_JANK_FRAMES, validJank, CRITICAL_JANK_PCT)
             )
         }
 
@@ -106,14 +121,14 @@ class ClassifyDevice {
                 ReasonDetail(ReasonCode.HIGH_RELATIVE_DRAIN, relativeDrain, WARNING_DRAIN_PCT_PER_HOUR)
             )
         }
-        if (device.crashCount7d >= WARNING_CRASH_COUNT) {
+        if (validCrashes >= WARNING_CRASH_COUNT) {
             warningReasons.add(
-                ReasonDetail(ReasonCode.HIGH_CRASH_COUNT, device.crashCount7d.toDouble(), WARNING_CRASH_COUNT.toDouble())
+                ReasonDetail(ReasonCode.HIGH_CRASH_COUNT, validCrashes.toDouble(), WARNING_CRASH_COUNT.toDouble())
             )
         }
-        if (device.jankFramesPct >= WARNING_JANK_PCT) {
+        if (validJank >= WARNING_JANK_PCT) {
             warningReasons.add(
-                ReasonDetail(ReasonCode.HIGH_JANK_FRAMES, device.jankFramesPct, WARNING_JANK_PCT)
+                ReasonDetail(ReasonCode.HIGH_JANK_FRAMES, validJank, WARNING_JANK_PCT)
             )
         }
 

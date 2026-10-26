@@ -27,11 +27,15 @@ object StatusFormatter {
                 ReasonCode.INVALID_ENERGY_CONVERSION ->
                     "unidade de energia ou tensão nominal inválida para normalização em mAh"
                 ReasonCode.NEGATIVE_ENERGY ->
-                    "consumo energético negativo ou ausente inválido (${fmt(reason.observedValue)} mAh)"
+                    "consumo energético negativo inválido (${fmt(reason.observedValue)} mAh)"
+                ReasonCode.MISSING_JANK_METRIC ->
+                    "métrica de quadros perdidos (jank) ausente no registro"
                 ReasonCode.INVALID_JANK_METRIC ->
                     "percentual de jank fora do intervalo físico [0%, 100%] (${fmt(reason.observedValue)}%)"
+                ReasonCode.MISSING_CRASH_METRIC ->
+                    "contagem de falhas (crashCount7d) ausente no registro"
                 ReasonCode.INVALID_CRASH_METRIC ->
-                    "contagem de falhas negativa ou ausente (${reason.observedValue.toInt()})"
+                    "contagem de falhas negativa inválida (${reason.observedValue.toInt()})"
                 ReasonCode.HIGH_RELATIVE_DRAIN ->
                     "dreno de ${fmt(reason.observedValue)}%/h, acima do limiar de ${fmt(reason.thresholdValue)}%/h"
                 ReasonCode.HIGH_CRASH_COUNT ->

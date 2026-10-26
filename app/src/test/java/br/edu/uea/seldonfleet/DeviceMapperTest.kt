@@ -65,7 +65,9 @@ class DeviceMapperTest {
             screenOnMinutes = 120,
             energyConsumed = 2000.0,
             energyUnit = "mWh",
-            nominalVoltage = 0.0
+            nominalVoltage = 0.0,
+            jankFramesPct = 2.0,
+            crashCount7d = 0
         )
 
         val domain = mapper.toDomain(dtoInvalido)
@@ -73,5 +75,28 @@ class DeviceMapperTest {
 
         val result = classifyDevice(domain)
         assertEquals(DeviceStatus.INDETERMINADO, result.status)
+    }
+
+    @Test
+    fun `distingue dado ausente de zero real - jank ou crashes nulos no DTO permanecem nulos e geram INDETERMINADO`() {
+        val dtoSemJank = DeviceDto(
+            id = "DEV-NO-JANK",
+            batteryCapacityMah = 5000,
+            screenOnMinutes = 120,
+            energyConsumed = 400.0,
+            energyUnit = "mAh",
+            jankFramesPct = null,
+            crashCount7d = 0
+        )
+        val domainSemJank = mapper.toDomain(dtoSemJank)
+        assertNull(domainSemJank.jankFramesPct)
+        assertEquals(0, domainSemJank.crashCount7d)
+        assertEquals(DeviceStatus.INDETERMINADO, classifyDevice(domainSemJank).status)
+
+        val dtoSemCrash = dtoSemJank.copy(id = "DEV-NO-CRASH", jankFramesPct = 0.0, crashCount7d = null)
+        val domainSemCrash = mapper.toDomain(dtoSemCrash)
+        assertEquals(0.0, domainSemCrash.jankFramesPct!!, 0.001)
+        assertNull(domainSemCrash.crashCount7d)
+        assertEquals(DeviceStatus.INDETERMINADO, classifyDevice(domainSemCrash).status)
     }
 }
