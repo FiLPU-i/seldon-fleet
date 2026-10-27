@@ -2,11 +2,11 @@
 
 Este documento estabelece o pre-registro dos criterios de normalizacao,
 tratamento de defeitos, regras de classificacao e ameacas a validade
-adotados no projeto Seldon Fleet (REQ-10).
+adotados no projeto Seldon Fleet.
 
 ---
 
-## 1. Tratamento de Defeitos do Arquivo (Secao 3.3)
+## 1. Tratamento de Defeitos do Arquivo
 
 ### 1.1. Defeito 1 - Unidade de Energia Inconsistente (mAh vs. mWh)
 * **Problema:** Parte dos registros informa `energyConsumed` em `mAh` e outra parte em `mWh`.
@@ -22,7 +22,7 @@ adotados no projeto Seldon Fleet (REQ-10).
 
 ---
 
-## 2. Formulas e Regra de Classificacao (Secao 4)
+## 2. Formulas e Regra de Classificacao
 
 Para aparelhos com dados validos (`batteryCapacityMah > 0` e `screenOnMinutes > 0`), o dominio calcula:
 
@@ -49,7 +49,7 @@ As regras sao avaliadas nesta ordem exata (a primeira que atender define o statu
 
 ---
 
-## 3. Ameacas a Validade (REQ-10)
+## 3. Ameacas a Validade
 
 1. **Consumo em Segundo Plano (Tela Desligada):** A formula divide toda a energia gasta apenas pelos minutos de tela ligada (`screenOnMinutes`). Se um aparelho gastar muita bateria com a tela apagada (servicos em background, sincronizacao ou sinal movel fraco), o `drenoRelativo` sera inflado e podera gerar um falso `CRITICO`.
 2. **Janela de Tempo Diferente nos Crashes:** O campo `crashCount7d` soma falhas de 7 dias inteiros, enquanto bateria e tempo de tela refletem apenas o ciclo recente. Um aparelho que teve 3 falhas ha 5 dias num app ja corrigido continuara como `CRITICO` hoje.
@@ -57,7 +57,7 @@ As regras sao avaliadas nesta ordem exata (a primeira que atender define o statu
 
 ---
 
-## 4. Trilha B - Seguranca, Automacao de Validacoes e LGPD (Secao 10)
+## 4. Trilha B - Seguranca, Automacao de Validacoes
 
 ### 4.1. Enquadramento dos Dados de Telemetria sob a LGPD (Lei 13.709/2018)
 Embora o arquivo `frota.json` nao contenha nome civil ou CPF, a Lei Geral de Protecao de Dados (Art. 5, inciso I) define **dado pessoal** como qualquer informacao relacionada a pessoa natural **identificada ou identificavel**. No contexto corporativo ou de testes de campo (PD&I):
