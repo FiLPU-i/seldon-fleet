@@ -106,7 +106,7 @@ O arquivo compilado é gerado em `app/build/outputs/apk/debug/app-debug.apk` (e 
 
 ---
 
-## 7. Declaração de Uso de Inteligência Artificial e Contribuição Autoral (Seção 2.3)
+## 7. Declaração de Uso de Inteligência Artificial e Contribuição Autoral
 
 Em conformidade com as diretrizes de transparência do edital:
 
@@ -125,5 +125,5 @@ Em conformidade com as diretrizes de transparência do edital:
 ## 8. O que eu, desenvolvedor do MONI-T, faria em seguida
 1. **Ingestão Automatizada Offline-First:** Acoplar na camada `data/` uma fonte de sincronização em segundo plano via `WorkManager` ou injeção automatizada via ADB para bancadas de teste, mantendo o banco local como fonte única da verdade.
 2. **Ponderação Contextual por *Tier* e Taxa de Atualização:** Parametrizar o limiar de `jankFramesPct` conforme a categoria do hardware (`low` 60 Hz vs. `high` 120 Hz) e isolar o dreno em *background* do dreno em tela ativa.
-3. **Organização, estruturação:** fazer uma pequena automatização de leitura, organização e validação rápida do **frota.json** antes de chegar a pasta 
+3. **Organização, estruturação:** Fazer uma pequena automatização de leitura, organização e validação rápida do **frota.json** antes de chegar a pasta 
 **app/src/main/assets/**, assim já diagnosticando automaticamente dispositivos que poderão ter resultados e os indeterminados, garantindo uma melhor auditoria.
