@@ -4,7 +4,6 @@
     <!-- REQ-01 e Trilha B: Sem permissao de INTERNET, sem backup automatico e sem trafego em texto claro -->
     <application
         android:allowBackup="false"
-        android:fullBackupContent="false"
         android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"

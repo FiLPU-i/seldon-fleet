@@ -37,7 +37,7 @@ As regras sao avaliadas nesta ordem exata (a primeira que atender define o statu
 
 | Ordem | Status no Dominio | Rotulo na Tela | Condicao de Disparo (qualquer uma basta) |
 | :--- | :--- | :--- | :--- |
-| 1 | `INDETERMINADO` | `SEM DADOS` | `batteryCapacityMah <= 0` OU `screenOnMinutes <= 0` OU `energyConsumed < 0` OU falha na conversao `mWh` |
+| 1 | `INDETERMINADO` | `SEM DADOS` | `batteryCapacityMah <= 0` OU `screenOnMinutes <= 0` OU `energyConsumed < 0` OU `jankFramesPct` fora de `[0, 100]` OU `crashCount7d < 0` OU campos obrigatorios ausentes OU falha na conversao `mWh` |
 | 2 | `CRITICO` | `CRITICO` | `drenoRelativo >= 12.0%/h` OU `crashCount7d >= 3` OU `jankFramesPct >= 15.0%` |
 | 3 | `ATENCAO` | `ATENCAO` | `drenoRelativo >= 7.0%/h` OU `crashCount7d >= 1` OU `jankFramesPct >= 8.0%` |
 | 4 | `OK` | `OK` | Nenhuma das condicoes anteriores |

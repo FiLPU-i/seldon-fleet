@@ -126,5 +126,5 @@ Em conformidade com as diretrizes de transparência do edital:
 ---
 
 ## 8. O que eu faria em seguida (Próximos Passos)
-1. **Ingestão Automatizada Offline-First:** Acoplar na camada `data/` uma fonte de sincronização em segundo plano via `WorkManager` ou injeção automatizada via ADB para bancadas de teste, mantendo o banco local como fonte única da verdade.
+1. **Ingestão Automatizada Offline-First:** Acoplar na camada `data/` uma fonte de sincronização em segundo plano via `WorkManager` ou injeção automatizada via ADB para bancadas de teste, mantendo o arquivo local offline (`frota.json` e `DataStore`) como fonte única da verdade e respeitando as restrições de Doze mode.
 2. **Ponderação Contextual por *Tier* e Taxa de Atualização:** Parametrizar o limiar de `jankFramesPct` conforme a categoria do hardware (`low` 60 Hz vs. `high` 120 Hz) e isolar o dreno em *background* do dreno em tela ativa.
