@@ -1,208 +1,130 @@
-MONI-T (Seldon Fleet) — Monitoramento e Diagnóstico de Telemetria Mobile
+# MONI-T (Seldon Fleet) — Monitoramento e Diagnóstico de Telemetria Mobile
 
-Aplicativo Android nativo desenvolvido para o desafio técnico do Projeto SELDON (EST/UEA & Motorola), com foco em diagnóstico de telemetria, classificação de dispositivos e automação de validações de segurança.
-
-Trilha escolhida: Trilha B — Segurança de Dispositivos Móveis e Automação de Validações.
-
-1. Visão geral
-
-O MONI-T (Seldon Fleet) é uma aplicação desenvolvida em Kotlin e Jetpack Compose para consultar e classificar uma frota de dispositivos móveis a partir de dados locais.
-
-O projeto utiliza uma arquitetura em camadas, com separação entre interface, acesso a dados e regras de domínio. A classificação é determinística: os mesmos dados de entrada, avaliados pela mesma regra, produzem o mesmo resultado.
-
-Principais funcionalidades:
-
-- Leitura local da frota a partir de "app/src/main/assets/frota.json".
-- Normalização de consumo energético entre mAh e mWh.
-- Classificação dos dispositivos em "OK", "ATENCAO", "CRITICO" ou "INDETERMINADO".
-- Listagem, filtros por status, contagens e consulta de detalhes.
-- Justificativas de classificação com valores observados e limiares.
-- Favoritos persistidos localmente por meio do Jetpack DataStore.
-- Testes unitários na JVM e verificações automatizadas no pipeline de CI.
-
-A aplicação não precisa de conexão de rede para carregar a frota fornecida. O manifesto não declara a permissão "android.permission.INTERNET", conforme o requisito de um app offline.
-
-2. Capturas de tela
-
-As imagens abaixo registram as telas do aplicativo executado em um dispositivo físico.
-
-Lista da frota e filtros| Detalhe e diagnóstico
-"Tela de lista" (docs/screenshots/tela_lista.png)| "Tela de detalhe" (docs/screenshots/tela_detalhe.png)
-
-A tela de lista apresenta os dispositivos e permite filtrar os resultados por status e favoritos. A tela de detalhe exibe atributos do dispositivo, métricas de telemetria e a justificativa da classificação.
-
-A frota de referência contém 30 registros. Para os dados fornecidos, a classificação esperada é de 16 dispositivos "OK", 8 "ATENCAO", 4 "CRITICO" e 2 "INDETERMINADO".
-
-3. Arquitetura e decisões de projeto
-
-O projeto está organizado em três camadas:
-
-br.edu.uea.seldonfleet/
-├── domain/
-│   ├── model/
-│   ├── repository/
-│   └── usecase/
-├── data/
-│   ├── dto/
-│   ├── mapper/
-│   ├── source/
-│   └── repository/
-└── ui/
-    ├── list/
-    ├── detail/
-    ├── theme/
-    └── StatusFormatter.kt
-
-Domain
-
-Contém os modelos, o contrato do repositório e a regra de classificação "ClassifyDevice", implementada em Kotlin sem dependências diretas de "android.*", JSON ou interface gráfica.
-
-Data
-
-É responsável pela leitura do arquivo local, conversão dos registros, normalização das unidades e persistência dos favoritos.
-
-UI
-
-Utiliza Jetpack Compose e ViewModel para apresentar a frota, os filtros e os detalhes. A tradução do estado interno "INDETERMINADO" para o rótulo visual "SEM DADOS" fica na camada de interface.
-
-A dependência entre as camadas aponta para o domínio: a infraestrutura implementa o contrato definido pelo domínio, enquanto a regra de classificação permanece independente do Android.
-
-4. Normalização e classificação
-
-O consumo energético é normalizado para mAh antes do cálculo.
-
-- Quando a unidade é "mAh", o valor é mantido.
-- Quando a unidade é "mWh", o valor é dividido pela tensão nominal positiva e válida, em volts.
-- Unidades inválidas, valores energéticos negativos ou dados necessários inválidos não devem produzir resultados numéricos arbitrários.
-
-O dreno absoluto é calculado a partir do consumo normalizado e do tempo de tela ligada. O dreno relativo considera também a capacidade nominal da bateria.
-
-A classificação considera três sinais:
-
-Status| Condição de disparo
-"CRITICO"| Dreno relativo ≥ 12%/h, ou pelo menos 3 falhas em 7 dias, ou jank ≥ 15%
-"ATENCAO"| Dreno relativo ≥ 7%/h, ou pelo menos 1 falha em 7 dias, ou jank ≥ 8%
-"OK"| Nenhuma condição de atenção ou crítica é atingida
-"INDETERMINADO"| Métricas necessárias ausentes ou inválidas, ou impossibilidade de calcular com segurança
-
-O estado "INDETERMINADO" é apresentado na interface como "SEM DADOS". Os dispositivos com telemetria insuficiente permanecem visíveis na frota.
-
-A ordem de precedência, as decisões sobre dados incompletos, os exemplos e as ameaças à validade estão documentados em ""PROTOCOLO.md"" (PROTOCOLO.md).
-
-5. Como compilar e testar
-
-Pré-requisitos
-
-- JDK 17.
-- Android SDK configurado no ambiente de compilação.
-- Gradle Wrapper incluído no repositório.
-
-Verificar o isolamento do domínio
-
-grep -r "import android" app/src/main/java/br/edu/uea/seldonfleet/domain/
-
-Resultado esperado: nenhuma ocorrência.
-
-Executar os testes unitários
-
-./gradlew test
-
-A suíte inclui testes de normalização de unidades, registros incompletos, fronteiras dos limiares e verificações de segurança.
-
-Executar o Android Lint
-
-./gradlew lintDebug
-
-Gerar o APK de debug
-
-./gradlew assembleDebug
-
-O arquivo gerado fica em:
-
-"app/build/outputs/apk/debug/app-debug.apk"
-
-O workflow do GitHub Actions também gera e publica o APK como artefato para download.
-
-Nota sobre o ambiente: a execução local dos comandos Gradle depende da configuração do Android SDK. O pipeline de CI utiliza seu próprio ambiente de compilação, independente da configuração local do desenvolvedor.
-
-6. Integração contínua
-
-O workflow ".github/workflows/android-ci.yml" é executado em eventos de push para "main" e em pull requests direcionados a essa branch.
-
-As etapas incluem:
-
-1. Configuração do JDK 17.
-2. Verificação de isolamento arquitetural do domínio.
-3. Execução do Android Lint.
-4. Execução dos testes unitários na JVM.
-5. Compilação do APK de debug.
-6. Publicação do APK como artefato.
-
-A situação da última execução pode ser consultada na aba Actions do repositório.
-
-7. Trilha B — Segurança e automação
-
-Configurações do manifesto
-
-O manifesto contém os seguintes controles:
-
-- "android:allowBackup="false"".
-- "android:usesCleartextTraffic="false"".
-- Ausência da permissão "android.permission.INTERNET".
-- Declaração explícita de "android:exported" para a atividade principal.
-
-A atividade principal é exportada para permitir o lançamento normal do aplicativo pelo sistema Android. A configuração não deve ser interpretada como uma auditoria completa de toda a superfície de ataque.
-
-Verificação automatizada de logs
-
-A suíte "SecurityAuditTest.kt" verifica padrões de código associados à exposição de identificadores de dispositivos em logs e também verifica o isolamento arquitetural do domínio.
-
-Essa verificação estática ajuda a detectar regressões nos padrões cobertos pelos testes. Entretanto, não substitui uma análise completa de fluxo de dados, uma auditoria dinâmica ou uma revisão de segurança independente.
-
-Considerações sobre privacidade
-
-Embora o arquivo de referência não contenha nomes civis ou CPFs, identificadores de dispositivos podem permitir identificação indireta quando associados a outras fontes. Horários de contato e métricas de uso também podem revelar padrões de atividade.
-
-Por isso, o projeto evita a permissão de rede e inclui verificações voltadas à exposição de identificadores em logs. Esses controles representam medidas técnicas de redução de risco, não uma declaração de conformidade integral com a LGPD.
-
-As decisões, os riscos e as limitações estão descritos em ""PROTOCOLO.md"" (PROTOCOLO.md).
-
-8. Dificuldades e decisões de engenharia
-
-Desenvolvimento em ambiente móvel
-
-O projeto foi desenvolvido utilizando Termux em um smartphone, com Git e GitHub para versionamento e GitHub Actions para automação de testes e compilação.
-
-Esse fluxo permitiu trabalhar sem depender de uma instalação local completa do Android Studio, utilizando o pipeline remoto para gerar o APK.
-
-Separação entre domínio e interface
-
-A regra de classificação permanece fora dos componentes visuais. Isso facilita testar os cálculos e a precedência dos sinais sem executar a interface Android.
-
-Tratamento de dados incompletos
-
-A implementação distingue métricas ausentes de valores numéricos iguais a zero. Essa distinção evita tratar automaticamente a ausência de telemetria como um valor medido e permite classificar explicitamente registros que não oferecem dados suficientes para uma conclusão segura.
-
-9. Declaração de uso de inteligência artificial
-
-As ferramentas e contribuições descritas nesta seção devem refletir o processo realizado durante o desenvolvimento.
-
-- Google Gemini: utilizado como apoio ao desenvolvimento e à revisão do projeto.
-- ChatGPT: utilizado como apoio à revisão técnica, análise de requisitos e identificação de casos de borda.
-
-A assistência de IA foi utilizada em atividades de desenvolvimento e revisão. A condução do projeto, a integração dos arquivos, o versionamento, a execução do pipeline e a validação funcional do APK fazem parte do processo de desenvolvimento realizado por mim (Desenvolvedor).
-
-As decisões técnicas e os resultados devem ser avaliados a partir do código, dos testes, da documentação e do histórico de commits do repositório.
-
-10. O que eu, desenvolvedor do  MONI-T, faria em seguida
-
-Se o projeto fosse ampliado após o escopo do desafio, eu priorizaria:
-
-1. Ampliar os testes de dados incompletos: cobrir sistematicamente campos ausentes, valores inválidos e combinações de sinais.
-2. Aprimorar a validação estática de segurança: reduzir as limitações da análise baseada em padrões e avaliar ferramentas capazes de acompanhar o fluxo de dados.
-3. Investigar o desempenho da interface: medir o custo de renderização e de atualização dos dados antes de realizar otimizações.
-4. Refinar o modelo de telemetria: separar consumo com tela ligada e consumo em segundo plano, quando esses dados estiverem disponíveis.
-
-Essas melhorias são possibilidades futuras, não funcionalidades que o projeto atual afirma já possuir.
+Desafio Técnico para o processo seletivo do **Projeto SELDON** (EST/UEA & Motorola) — **Trilha de Segurança de Dispositivos Móveis e Automação de Validações**.
 
 ---
+
+## 1. Visão Geral do Projeto
+O **MONI-T (Seldon Fleet)** é uma aplicação Android nativa desenvolvida em **Kotlin** e **Jetpack Compose**, estruturada sob os princípios de **Clean Architecture** para ingestão, normalização, classificação determinística e auditoria de telemetria de frotas de dispositivos móveis.
+
+O sistema opera de forma **100% offline** (consumindo `app/src/main/assets/frota.json`), sem permissão de acesso à rede (`android.permission.INTERNET` ausente no manifesto), garantindo execução integral em modo avião e conformidade com os requisitos de segurança e privacidade (**REQ-01**).
+
+---
+
+## 2. Capturas de Tela (Execução em Dispositivo Físico Motorola)
+
+| Tela 1 — Lista da Frota e Filtros por Status | Tela 2 — Diagnóstico Analítico e Telemetria |
+| :---: | :---: |
+| ![Tela de Lista](docs/screenshots/tela_lista.png) | ![Tela de Detalhe](docs/screenshots/tela_detalhe.png) |
+
+* **Listagem e Filtros (REQ-05):** Apresenta os 30 dispositivos da frota com contadores dinâmicos por categoria (`Todos (30)`, `★ Favoritos`, `OK (16)`, `ATENÇÃO (8)`, `CRÍTICO (4)`, `SEM DADOS (2)`), selos semânticos de cor, ordenação automática de favoritos no topo e limpeza em lote protegida por caixa de diálogo de confirmação via **Jetpack DataStore** (**REQ-07**).
+* **Detalhe e Justificativa (REQ-06):** Exibe todos os atributos de hardware e telemetria, o consumo normalizado em `mAh`, as taxas de dreno horário (absoluto e relativo) e a justificativa textual determinística contendo os valores observados frente aos limiares do protocolo.
+
+---
+
+## 3. Arquitetura e Decisões de Engenharia
+
+O projeto segue a separação estrita em três camadas:
+
+~~~text
+br.edu.uea.seldonfleet/
+├── domain/     # Kotlin puro (Zero import android.*) — REQ-04
+│   ├── model/          # Device, DeviceStatus (OK, ATENCAO, CRITICO, INDETERMINADO), ClassificationResult
+│   ├── repository/     # Contrato DeviceRepository (Inversao de Dependencia)
+│   └── usecase/        # ClassifyDevice (Regras matematicas, precedencia e guarda de divisores nulos)
+├── data/       # Ingestao, Normalizacao e Persistencia Local
+│   ├── dto/            # DeviceDto e FleetResponseDto (tolerantes a campos ausentes/nulos)
+│   ├── mapper/         # DeviceMapper (conversao mWh -> mAh via nominalVoltage — REQ-02)
+│   ├── source/         # AssetFleetSource (leitura offline de assets/frota.json — REQ-01)
+│   └── repository/     # FleetRepositoryImpl (integracao Assets + Jetpack DataStore — REQ-07)
+└── ui/         # Interface Reativa em Jetpack Compose
+    ├── list/           # FleetListViewModel e FleetListScreen
+    ├── detail/         # DeviceDetailScreen (preserva estado do filtro ao retornar)
+    ├── theme/          # Paleta semantica de status
+    └── StatusFormatter.kt # Traducao exclusiva de INDETERMINADO -> "SEM DADOS" na UI
+~~~
+
+---
+
+## 4. Como Compilar, Testar e Executar
+
+### Pré-requisitos
+* **JDK 17** configurado no ambiente.
+* O repositório inclui o **Gradle Wrapper (`./gradlew`)** oficial versionado.
+
+### 1. Verificar Isolamento Arquitetural do Domínio (REQ-04)
+~~~bash
+grep -r "import android" app/src/main/java/br/edu/uea/seldonfleet/domain/
+~~~
+*(Resultado esperado: saída vazia — nenhuma dependência do framework Android no pacote `domain/`).*
+
+### 2. Executar Suíte de Testes Unitários JVM e Auditoria Trilha B (REQ-08)
+~~~bash
+./gradlew test
+~~~
+Executa na JVM (sem necessidade de emulador):
+* **`DeviceMapperTest`:** Equivalência física entre `mWh` e `mAh` (ex.: `DEV-0204` com `3773 mWh` a `3.85 V` convertidos para `980.0 mAh`), rejeição de tensões nulas/negativas e distinção estrita entre métricas ausentes (`null`) e zero real (`0.0` / `0`).
+* **`ClassifyDeviceTest`:** Guardas contra divisão por zero (`batteryCapacityMah <= 0` como `DEV-0311`, `screenOnMinutes <= 0` como `DEV-0745`), análise de fronteiras completas imediatamente abaixo, exatamente no limiar e imediatamente acima (`6.99%`, `7.00%`, `7.01%` para `ATENCAO`; `11.99%`, `12.00%`, `12.01%` para `CRITICO`), precedência de sinais críticos e rejeição de métricas externas ausentes ou fora do intervalo físico (`jank` fora de `[0, 100]` ou `crashes < 0`).
+* **`SecurityAuditTest`:** Verificação automatizada da **Trilha B**.
+
+### 3. Executar Análise Estática (Android Lint — REQ-09)
+~~~bash
+./gradlew lintDebug
+~~~
+
+### 4. Gerar o Instalador APK de Debug
+~~~bash
+./gradlew assembleDebug
+~~~
+O arquivo compilado é gerado em `app/build/outputs/apk/debug/app-debug.apk` (e publicado automaticamente como artefato na aba **Actions** do GitHub).
+
+---
+
+## 5. Trilha B — Segurança de Dispositivos Móveis, Automação e LGPD (Seção 10)
+
+1. **Hardening do `AndroidManifest.xml`:**
+   * `android:allowBackup="false"` e `android:fullBackupContent="false"` (impede extração não autorizada de preferências locais via ADB backup).
+   * `android:usesCleartextTraffic="false"` (bloqueia tráfego em texto claro por padrão).
+   * Ausência de `android:debuggable="true"` fixado no manifesto e ausência de permissão `INTERNET`.
+   * Controle explícito de superfície de ataque com `android:exported="true"` restrito exclusivamente à `MainActivity`.
+2. **Auditoria Estática Automatizada no Build (`SecurityAuditTest.kt`):**
+   * O teste falha a pipeline de CI caso qualquer arquivo `.kt` introduza chamadas de log (`Log.*`, `android.util.Log.*`, `Timber.*`, `Logger.*`, `println`, `System.out/err`) contendo identificadores de dispositivos (`device.id`, `dto.id`, `deviceId`, `DEV-XXXX`), cobrindo chamadas simples, **multilinha**, interpolação de strings e **aliasing em variável local**.
+   * **Política estrita de supressão e limites do verificador:** Supressões exigem código de ticket e justificativa formal (`@SecurityAuditIgnore(reason="SEC-XXX: ...")`) e **jamais** isentam o acesso direto a propriedades `.id` de instâncias ou literais `DEV-XXXX` (permitindo apenas tratar falsos positivos em strings literais descritivas de schema). Os limites da verificação estática baseada em escopo local frente a análise de fluxo entre arquivos (AST Taint Analysis) são explicitamente testados e documentados na suíte.
+3. **Análise de Dados Pessoais sob a LGPD (Lei 13.709/2018):**
+   * Documentada na Seção 4 do arquivo [`PROTOCOLO.md`](PROTOCOLO.md), distinguindo métricas técnicas de hardware (`soc`, `ramMb`, `nominalVoltage`) de identificadores pseudonimizados (`id` combinado a `lastSeen` e `screenOnMinutes`), que permitem identificação indireta do portador (Art. 5º, I — Teoria do Mosaico).
+
+---
+
+## 6. Raciocínio de Desenvolvimento, Dificuldades Encontradas e Soluções
+
+1. **Restrição de Infraestrutura (Desenvolvimento 100% Mobile via Termux + Cloud CI):**
+   * **Dificuldade:** Ausência de computador desktop para rodar o Android Studio localmente e ausência de rede Wi-Fi residencial fixa durante o desenvolvimento.
+   * **Solução de Engenharia:** O fluxo de desenvolvimento foi arquitetado e executado a partir de um smartphone Motorola utilizando o terminal Linux **Termux** (`git` + `gh CLI`) via rede móvel, integrado ao **GitHub Actions** (`ubuntu-24.04` com JDK 17 e Gradle Wrapper) para compilação limpa, execução de Lint, bateria de testes JVM e geração do artefato `.apk`, instalado e validado diretamente no aparelho físico.
+2. **Prevenção de Vazamento Semântico entre Domínio e UI:**
+   * **Dificuldade:** O enunciado exige que o estado interno no domínio chame-se `INDETERMINADO`, mas que a interface exiba `SEM DADOS` e frases explicativas em português.
+   * **Solução:** O caso de uso `ClassifyDevice` retorna códigos estruturados (`ReasonCode`), valores observados e limiares violados (`ReasonDetail`). A tradução para texto humano e cores ocorre exclusivamente em `ui/StatusFormatter.kt`, mantendo o domínio 100% puro.
+3. **Distinção entre Dado Ausente e Zero Real:**
+   * **Dificuldade:** Evitar que campos ausentes (`null`) no JSON fossem convertidos silenciosamente em `0` no mapeador, o que mascararia falhas de telemetria como se o aparelho estivesse saudável.
+   * **Solução:** Preservação da nulidade semântica no `DeviceMapper` e validação explícita no `ClassifyDevice`, encaminhando qualquer métrica ausente ou fora dos limites físicos (`jank` fora de `[0%, 100%]` ou `crashes < 0`) para o estado `INDETERMINADO`.
+
+---
+
+## 7. Declaração de Uso de Inteligência Artificial e Contribuição Autoral (Seção 2.3)
+
+Em conformidade com as diretrizes de transparência do edital:
+
+* **Ferramentas utilizadas:** **Google Gemini** (assistente de pareamento arquitetural, geração de código Kotlin/Compose e scripts de automação) e **ChatGPT** (utilizado de forma independente como auditor de *Code Review* para verificação de requisitos e casos de borda).
+* **Onde a IA auxiliou:**
+  1. Geração da estrutura de arquivos do Gradle, componentes visuais em Jetpack Compose, desenho vetorial XML do ícone adaptativo (visor de osciloscópio) e expressões regulares do verificador estático da Trilha B.
+  2. Revisão crítica cruzada apontando a necessidade de incluir os arquivos do Gradle Wrapper (`./gradlew`), expandir os testes de fronteira para cobrir valores imediatamente acima dos limiares e distinguir métricas ausentes de zero real.
+* **Decisões, validações e condução próprias do candidato:**
+  1. **Pré-registro e Inspeção dos Dados (`PROTOCOLO.md`):** Análise dos registros `DEV-0204` (`mWh`), `DEV-0311` (`batteryCapacityMah = 0`) e `DEV-0745` (`screenOnMinutes = 0`), decidindo manter dispositivos defeituosos visíveis sob `INDETERMINADO` para preservar a rastreabilidade dos 30 aparelhos.
+  2. **Arquitetura do Ambiente Mobile:** Configuração do ambiente Linux no Termux, autenticação SSH/GitHub CLI, execução dos commits e gerenciamento do pipeline de CI.
+  3. **Direcionamento de Produto e Robustez:** Definição da identidade visual **MONI-T**, concepção do ícone de osciloscópio de bateria, criação da funcionalidade de limpeza em lote de favoritos em local estratégico com caixa de diálogo de confirmação (prevenindo toque acidental em frotas grandes) e exigência de validação contra dados externos negativos ou infinitos.
+  4. **Testes e Validação em Dispositivo Real:** Instalação e inspeção funcional do APK no smartphone Motorola, conferindo contagens, filtros, persistência do DataStore e justificativas de cada aparelho.
+
+---
+
+## 8. O que eu, desenvolvedor do MONI-T, faria em seguida
+1. **Ingestão Automatizada Offline-First:** Acoplar na camada `data/` uma fonte de sincronização em segundo plano via `WorkManager` ou injeção automatizada via ADB para bancadas de teste, mantendo o banco local como fonte única da verdade.
+2. **Ponderação Contextual por *Tier* e Taxa de Atualização:** Parametrizar o limiar de `jankFramesPct` conforme a categoria do hardware (`low` 60 Hz vs. `high` 120 Hz) e isolar o dreno em *background* do dreno em tela ativa.
